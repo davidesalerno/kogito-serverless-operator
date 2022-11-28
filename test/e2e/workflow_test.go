@@ -55,7 +55,7 @@ var _ = Describe("kogito-serverless", func() {
 			By("labeling all namespaces to warn when we apply the manifest if would violate the PodStandards")
 			cmd = exec.Command("kubectl", "label", "--overwrite", "ns", "--all",
 				"pod-security.kubernetes.io/audit=restricted",
-				"pod-security.kubernetes.io/enforce-version=v1.18",
+				"pod-security.kubernetes.io/enforce-version=v1.24",
 				"pod-security.kubernetes.io/warn=restricted")
 			_, err := utils.Run(cmd)
 			ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -63,7 +63,7 @@ var _ = Describe("kogito-serverless", func() {
 			By("labeling enforce the namespace where the Operator and Operand(s) will run")
 			cmd = exec.Command("kubectl", "label", "--overwrite", "ns", namespace,
 				"pod-security.kubernetes.io/audit=restricted",
-				"pod-security.kubernetes.io/enforce-version=v1.18",
+				"pod-security.kubernetes.io/enforce-version=v1.24",
 				"pod-security.kubernetes.io/enforce=restricted")
 			_, err = utils.Run(cmd)
 			Expect(err).To(Not(HaveOccurred()))
