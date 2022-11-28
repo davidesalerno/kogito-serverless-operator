@@ -375,8 +375,6 @@ spec:
                     - ALL
               securityContext:
                 runAsNonRoot: true
-                seccompProfile:
-                  type: RuntimeDefault
               serviceAccountName: kogito-serverless-operator-controller-manager
               terminationGracePeriodSeconds: 10
       permissions:
