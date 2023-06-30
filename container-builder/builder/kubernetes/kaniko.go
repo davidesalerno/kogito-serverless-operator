@@ -23,7 +23,6 @@ import (
 	"github.com/kiegroup/kogito-serverless-operator/container-builder/api"
 	"github.com/kiegroup/kogito-serverless-operator/container-builder/client"
 	"github.com/kiegroup/kogito-serverless-operator/container-builder/util/defaults"
-	"github.com/kiegroup/kogito-serverless-operator/container-builder/util/minikube"
 	"github.com/kiegroup/kogito-serverless-operator/container-builder/util/registry"
 )
 
@@ -55,20 +54,9 @@ var (
 func addKanikoTaskToPod(ctx context.Context, c client.Client, build *api.ContainerBuild, task *api.KanikoTask, pod *corev1.Pod) error {
 	// TODO: perform an actual registry lookup based on the environment
 	if task.Registry.Address == "" {
-		address, err := registry.GetRegistryAddress(ctx, c)
+		err := registry.LookupInternalRegistry(ctx, c, build, &task.ContainerBuildBaseTask)
 		if err != nil {
 			return err
-		}
-		if address != nil {
-			task.Registry.Address = *address
-		} else {
-			address, err := minikube.FindRegistry(ctx, c)
-			if err != nil {
-				return err
-			}
-			if address != nil {
-				task.Registry.Address = *address
-			}
 		}
 	}
 

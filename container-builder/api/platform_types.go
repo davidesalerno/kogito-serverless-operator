@@ -50,6 +50,8 @@ const (
 	// PlatformBuildPublishStrategyKaniko uses Kaniko project (https://github.com/GoogleContainerTools/kaniko)
 	// in order to push the incremental images to the image repository. It can be used with `pod` ContainerBuildStrategy.
 	PlatformBuildPublishStrategyKaniko PlatformContainerBuildPublishStrategy = "Kaniko"
+	// PlatformBuildPublishStrategyJib uses Jib project (https://github.com/GoogleContainerTools/jib)
+	PlatformBuildPublishStrategyJib PlatformContainerBuildPublishStrategy = "Jib"
 )
 
 // IsOptionEnabled return whether if the BuildStrategyOptions is enabled or not

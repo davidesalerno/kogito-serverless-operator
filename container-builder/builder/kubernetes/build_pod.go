@@ -65,6 +65,11 @@ func newBuildPod(ctx context.Context, c client.Client, build *api.ContainerBuild
 			if err != nil {
 				return nil, err
 			}
+		case task.Jib != nil:
+			err := addJibTaskToPod(ctx, c, build, task.Jib, pod)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

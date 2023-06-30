@@ -17,37 +17,38 @@ package kubernetes
 import (
 	"path"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/kiegroup/kogito-serverless-operator/container-builder/api"
 	"github.com/kiegroup/kogito-serverless-operator/container-builder/util"
 	"github.com/kiegroup/kogito-serverless-operator/container-builder/util/log"
 )
 
-type kanikoScheduler struct {
+type jibScheduler struct {
 	*scheduler
-	KanikoTask *api.KanikoTask
+	JibTask *api.JibTask
 }
 
-type kanikoSchedulerHandler struct {
+type jibSchedulerHandler struct {
 }
 
-var _ schedulerHandler = &kanikoSchedulerHandler{}
+var _ schedulerHandler = &jibSchedulerHandler{}
 
-func (k kanikoSchedulerHandler) CreateScheduler(info ContainerBuilderInfo, buildCtx containerBuildContext) Scheduler {
-	kanikoTask := api.KanikoTask{
-		ContainerBuildBaseTask: api.ContainerBuildBaseTask{Name: "KanikoTask", PublishTask: api.PublishTask{
-			ContextDir: path.Join("/builder", info.BuildUniqueName, "context"),
+const defaultContextDir = "/home/kogito/serverless-workflow-project/resources"
+
+func (k jibSchedulerHandler) CreateScheduler(info ContainerBuilderInfo, buildCtx containerBuildContext) Scheduler {
+
+	jibTask := api.JibTask{
+		ContainerBuildBaseTask: api.ContainerBuildBaseTask{Name: "JibTask", PublishTask: api.PublishTask{
+			//TODO: Make the ContextDir configurable via api
+			ContextDir: path.Join(defaultContextDir),
 			BaseImage:  info.Platform.Spec.BaseImage,
 			Image:      info.FinalImageName,
 			Registry:   info.Platform.Spec.Registry,
 		}},
-		Cache: api.KanikoTaskCache{},
 	}
 
 	buildCtx.ContainerBuild = &api.ContainerBuild{
 		Spec: api.ContainerBuildSpec{
-			Tasks:    []api.ContainerBuildTask{{Kaniko: &kanikoTask}},
+			Tasks:    []api.ContainerBuildTask{{Jib: &jibTask}},
 			Strategy: api.ContainerBuildStrategyPod,
 			Timeout:  *info.Platform.Spec.Timeout,
 		},
@@ -56,7 +57,7 @@ func (k kanikoSchedulerHandler) CreateScheduler(info ContainerBuilderInfo, build
 	buildCtx.ContainerBuild.Name = info.BuildUniqueName
 	buildCtx.ContainerBuild.Namespace = info.Platform.Namespace
 
-	sched := &kanikoScheduler{
+	sched := &jibScheduler{
 		&scheduler{
 			builder: builder{
 				L:       log.WithName(util.ComponentName),
@@ -64,39 +65,22 @@ func (k kanikoSchedulerHandler) CreateScheduler(info ContainerBuilderInfo, build
 			},
 			Resources: make([]resource, 0),
 		},
-		&kanikoTask,
+		&jibTask,
 	}
 	// we hold our own reference for the default methods to return the right object
 	sched.Scheduler = sched
 	return sched
 }
 
-func (k kanikoSchedulerHandler) CanHandle(info ContainerBuilderInfo) bool {
-	return info.Platform.Spec.BuildStrategy == api.ContainerBuildStrategyPod && info.Platform.Spec.PublishStrategy == api.PlatformBuildPublishStrategyKaniko
+func (k jibSchedulerHandler) CanHandle(info ContainerBuilderInfo) bool {
+	return info.Platform.Spec.BuildStrategy == api.ContainerBuildStrategyPod && info.Platform.Spec.PublishStrategy == api.PlatformBuildPublishStrategyJib
 }
 
-func (sk *kanikoScheduler) WithProperty(property BuilderProperty, object interface{}) Scheduler {
-	if property == KanikoCache {
-		sk.KanikoTask.Cache = object.(api.KanikoTaskCache)
-	}
-	return sk
-}
-
-func (sk *kanikoScheduler) WithResourceRequirements(res corev1.ResourceRequirements) Scheduler {
-	sk.KanikoTask.Resources = res
-	return sk
-}
-
-func (sk *kanikoScheduler) WithAdditionalArgs(flags []string) Scheduler {
-	sk.KanikoTask.AdditionalFlags = flags
-	return sk
-}
-
-func (sk *kanikoScheduler) Schedule() (*api.ContainerBuild, error) {
+func (sk *jibScheduler) Schedule() (*api.ContainerBuild, error) {
 	// verify if we really need this
 	for _, task := range sk.builder.Context.ContainerBuild.Spec.Tasks {
-		if task.Kaniko != nil {
-			task.Kaniko = sk.KanikoTask
+		if task.Jib != nil {
+			task.Jib = sk.JibTask
 			break
 		}
 	}

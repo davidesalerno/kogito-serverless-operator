@@ -122,6 +122,17 @@ func (b *BuildPlatformTemplate) IsOptionEnabled(option string) bool {
 	return false
 }
 
+// IsOptionAsDesired return whether the BuildStrategyOptions is configured with a specific value or not
+func (b *BuildPlatformTemplate) IsOptionAsDesired(option string, desiredValue string) bool {
+	if value, ok := b.BuildStrategyOptions[option]; ok {
+		if value != desiredValue {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
 func (b *BuildPlatformTemplate) IsOptionEmpty(option string) bool {
 	if v, ok := b.BuildStrategyOptions[option]; ok {
 		return len(v) == 0

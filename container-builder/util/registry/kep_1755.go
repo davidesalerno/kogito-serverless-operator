@@ -25,7 +25,9 @@ import (
 	k8errors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/kiegroup/kogito-serverless-operator/container-builder/api"
 	"github.com/kiegroup/kogito-serverless-operator/container-builder/client"
+	"github.com/kiegroup/kogito-serverless-operator/container-builder/util/minikube"
 )
 
 // GetRegistryAddress KEP-1755
@@ -93,4 +95,36 @@ type LocalRegistryHostingV1 struct {
 	// should contain instructions on how to diagnose broken or misconfigured
 	// registries.
 	Help string `yaml:"help,omitempty"`
+}
+
+func LookupInternalRegistry(ctx context.Context, c client.Client, build *api.ContainerBuild, task *api.ContainerBuildBaseTask) error {
+	address, err := GetRegistryAddress(ctx, c)
+	if err != nil {
+		return err
+	}
+	if address != nil {
+		task.Registry.Address = *address
+		updateAddressinBuildSpec(build, address)
+	} else {
+		address, err := minikube.FindRegistry(ctx, c)
+		if err != nil {
+			return err
+		}
+		if address != nil {
+			task.Registry.Address = *address
+			updateAddressinBuildSpec(build, address)
+		}
+	}
+	return nil
+}
+
+func updateAddressinBuildSpec(build *api.ContainerBuild, address *string) {
+	for _, t := range build.Spec.Tasks {
+		if t.Kaniko != nil {
+			t.Kaniko.Registry.Address = *address
+		}
+		if t.Jib != nil {
+			t.Jib.Registry.Address = *address
+		}
+	}
 }

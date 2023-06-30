@@ -25,6 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	"github.com/kiegroup/kogito-serverless-operator/container-builder/util/minikube"
 	"github.com/kiegroup/kogito-serverless-operator/controllers/workflowdef"
 
 	"github.com/kiegroup/kogito-serverless-operator/container-builder/client"
@@ -52,6 +53,13 @@ func ConfigureRegistry(ctx context.Context, c client.Client, p *operatorapi.Sona
 			log.Error(err, "Cannot find a registry where to push images via KEP-1755")
 		} else if err == nil && address != nil {
 			p.Spec.BuildPlatform.Registry.Address = *address
+		} else {
+			address, err = minikube.FindRegistry(ctx, c)
+			if err != nil && verbose {
+				log.Error(err, "Supposing we are on Minikube we cannot find a registry")
+			} else {
+				p.Spec.BuildPlatform.Registry.Address = *address
+			}
 		}
 	}
 

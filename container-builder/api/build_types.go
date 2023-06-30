@@ -75,12 +75,15 @@ type ContainerRegistrySpec struct {
 type ContainerBuildTask struct {
 	// a KanikoTask, for Kaniko strategy
 	Kaniko *KanikoTask `json:"kaniko,omitempty"`
+	// a JibTask, for Jib strategy
+	Jib *JibTask `json:"jib,omitempty"`
 }
 
 // ContainerBuildBaseTask is a base for the struct hierarchy
 type ContainerBuildBaseTask struct {
 	// name of the task
-	Name string `json:"name,omitempty"`
+	Name        string `json:"name,omitempty"`
+	PublishTask `json:",inline"`
 }
 
 // PublishTask image publish configuration
@@ -98,7 +101,6 @@ type PublishTask struct {
 // KanikoTask is used to configure Kaniko
 type KanikoTask struct {
 	ContainerBuildBaseTask `json:",inline"`
-	PublishTask            `json:",inline"`
 	// log more information
 	Verbose *bool `json:"verbose,omitempty"`
 	// use a cache
@@ -115,6 +117,15 @@ type KanikoTaskCache struct {
 	Enabled *bool `json:"enabled,omitempty"`
 	// the PVC used to store the cache
 	PersistentVolumeClaim string `json:"persistentVolumeClaim,omitempty"`
+}
+
+// JibTask is used to configure Jib
+type JibTask struct {
+	ContainerBuildBaseTask `json:",inline"`
+	// log more information
+	Verbose *bool `json:"verbose,omitempty"`
+	// Resources -- optional compute resource requirements for the Kaniko container
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // ContainerBuildPhase --

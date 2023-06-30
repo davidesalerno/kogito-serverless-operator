@@ -23,8 +23,6 @@ import (
 
 	builder "github.com/kiegroup/kogito-serverless-operator/container-builder/builder/kubernetes"
 
-	v1 "k8s.io/api/core/v1"
-	resource2 "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kiegroup/kogito-serverless-operator/container-builder/api"
@@ -38,10 +36,10 @@ Usage example. Please note that you must have a valid Kubernetes environment up 
 func main() {
 	cli, err := client.NewOutOfClusterClient("")
 
-	dockerFile, err := os.ReadFile("examples/dockerfiles/SonataFlow.dockerfile")
-	if err != nil {
+	//dockerFile, err := os.ReadFile("examples/dockerfiles/SonataFlow.dockerfile")
+	/*if err != nil {
 		panic("Can't read dockerfile")
-	}
+	}*/
 	source, err := os.ReadFile("examples/sources/sonataflowgreetings.sw.json")
 	if err != nil {
 		panic("Can't read source file")
@@ -58,7 +56,7 @@ func main() {
 		},
 		Spec: api.PlatformContainerBuildSpec{
 			BuildStrategy:   api.ContainerBuildStrategyPod,
-			PublishStrategy: api.PlatformBuildPublishStrategyKaniko,
+			PublishStrategy: api.PlatformBuildPublishStrategyJib,
 			Registry: api.ContainerRegistrySpec{
 				Insecure: true,
 			},
@@ -68,22 +66,9 @@ func main() {
 		},
 	}
 
-	cpuQty, _ := resource2.ParseQuantity("1")
-	memQty, _ := resource2.ParseQuantity("4Gi")
-
 	build, err := builder.NewBuild(builder.ContainerBuilderInfo{FinalImageName: "greetings:latest", BuildUniqueName: "sonataflow-test", Platform: platform}).
-		WithResource("Dockerfile", dockerFile).WithResource("greetings.sw.json", source).
-		WithAdditionalArgs([]string{"--build-arg=QUARKUS_PACKAGE_TYPE=mutable-jar", "--build-arg=QUARKUS_LAUNCH_DEVMODE=true", "--build-arg=SCRIPT_DEBUG=false"}).
-		WithResourceRequirements(v1.ResourceRequirements{
-			Limits: v1.ResourceList{
-				v1.ResourceCPU:    cpuQty,
-				v1.ResourceMemory: memQty,
-			},
-			Requests: v1.ResourceList{
-				v1.ResourceCPU:    cpuQty,
-				v1.ResourceMemory: memQty,
-			},
-		}).
+		//WithResource("Dockerfile", dockerFile).
+		WithResource("greetings.sw.json", source).
 		WithClient(cli).
 		Schedule()
 	if err != nil {

@@ -49,18 +49,26 @@ func (c *containerBuilderManager) Schedule(build *operatorapi.SonataFlowBuild) e
 	if err != nil {
 		return err
 	}
-	kanikoTaskCache := api.KanikoTaskCache{}
-	if platform.IsKanikoCacheEnabled(c.platform) {
-		kanikoTaskCache.Enabled = utils.Pbool(true)
+
+	var containerBuilder *api.ContainerBuild
+	if platform.IsJibBuilderEnabled(c.platform) != true {
+		kanikoTaskCache := api.KanikoTaskCache{}
+		if platform.IsKanikoCacheEnabled(c.platform) {
+			kanikoTaskCache.Enabled = utils.Pbool(true)
+		}
+		kanikoTask := &api.KanikoTask{
+			ContainerBuildBaseTask: api.ContainerBuildBaseTask{Name: "kaniko"},
+			Cache:                  kanikoTaskCache,
+			Resources:              build.Spec.Resources,
+			AdditionalFlags:        build.Spec.Arguments,
+		}
+		containerBuilder, err = c.scheduleNewKanikoBuildWithContainerFile(build.Name, imageNameTag, workflowDef, kanikoTask)
+	} else {
+		jibTask := &api.JibTask{
+			ContainerBuildBaseTask: api.ContainerBuildBaseTask{Name: "jib"},
+		}
+		containerBuilder, err = c.scheduleNewJibBuildWithContainerFile(build.Name, imageNameTag, workflowDef, jibTask)
 	}
-	kanikoTask := &api.KanikoTask{
-		ContainerBuildBaseTask: api.ContainerBuildBaseTask{Name: "kaniko"},
-		PublishTask:            api.PublishTask{},
-		Cache:                  kanikoTaskCache,
-		Resources:              build.Spec.Resources,
-		AdditionalFlags:        build.Spec.Arguments,
-	}
-	containerBuilder, err := c.scheduleNewKanikoBuildWithContainerFile(build.Name, imageNameTag, workflowDef, kanikoTask)
 	if err = build.Status.SetInnerBuild(containerBuilder); err != nil {
 		return err
 	}
@@ -100,18 +108,38 @@ func (c *containerBuilderManager) getImageBuilderForKaniko(workflowID string, im
 	ib := NewImageBuilder(workflowID, workflowDefinition, []byte(containerFile))
 	ib.OnNamespace(c.platform.Namespace)
 	ib.WithPodMiddleName(workflowID)
-	ib.WithInsecureRegistry(false)
+	ib.WithInsecureRegistry(c.platform.Spec.BuildPlatform.Registry.Insecure)
 	ib.WithImageNameTag(imageNameTag)
 	ib.WithSecret(c.platform.Spec.BuildPlatform.Registry.Secret)
 	ib.WithRegistryAddress(c.platform.Spec.BuildPlatform.Registry.Address)
 	ib.WithCache(task.Cache)
 	ib.WithResources(task.Resources)
 	ib.WithAdditionalFlags(task.AdditionalFlags)
+	ib.WithBuilderStrategy(api.PlatformBuildPublishStrategyKaniko)
+	return ib
+}
+
+func (c *containerBuilderManager) getImageBuilderForJib(workflowID string, imageNameTag string, workflowDefinition []byte, task *api.JibTask) imageBuilder {
+	containerFile := c.commonConfig.Data[c.commonConfig.Data[configKeyDefaultBuilderResourceName]]
+	ib := NewImageBuilder(workflowID, workflowDefinition, []byte(containerFile))
+	ib.OnNamespace(c.platform.Namespace)
+	ib.WithPodMiddleName(workflowID)
+	ib.WithInsecureRegistry(c.platform.Spec.BuildPlatform.Registry.Insecure)
+	ib.WithImageNameTag(imageNameTag)
+	ib.WithSecret(c.platform.Spec.BuildPlatform.Registry.Secret)
+	ib.WithRegistryAddress(c.platform.Spec.BuildPlatform.Registry.Address)
+	ib.WithBuilderStrategy(api.PlatformBuildPublishStrategyJib)
 	return ib
 }
 
 func (c *containerBuilderManager) scheduleNewKanikoBuildWithContainerFile(workflowName string, imageNameTag string, workflowDefinition []byte, task *api.KanikoTask) (*api.ContainerBuild, error) {
 	ib := c.getImageBuilderForKaniko(workflowName, imageNameTag, workflowDefinition, task)
+	ib.WithTimeout(5 * time.Minute)
+	return c.buildImage(ib.Build())
+}
+
+func (c *containerBuilderManager) scheduleNewJibBuildWithContainerFile(workflowName string, imageNameTag string, workflowDefinition []byte, task *api.JibTask) (*api.ContainerBuild, error) {
+	ib := c.getImageBuilderForJib(workflowName, imageNameTag, workflowDefinition, task)
 	ib.WithTimeout(5 * time.Minute)
 	return c.buildImage(ib.Build())
 }
@@ -131,7 +159,7 @@ func (c *containerBuilderManager) buildImage(kb internalBuilder) (*api.Container
 		},
 		Spec: api.PlatformContainerBuildSpec{
 			BuildStrategy:   api.ContainerBuildStrategyPod,
-			PublishStrategy: api.PlatformBuildPublishStrategyKaniko,
+			PublishStrategy: kb.BuilderStrategy,
 			Registry: api.ContainerRegistrySpec{
 				Insecure: kb.InsecureRegistry,
 				Address:  kb.RegistryAddress,
@@ -209,6 +237,7 @@ type internalBuilder struct {
 	Cache                api.KanikoTaskCache
 	Resources            corev1.ResourceRequirements
 	AdditionalFlags      []string
+	BuilderStrategy      api.PlatformContainerBuildPublishStrategy
 }
 
 type imageBuilder struct {
@@ -265,6 +294,11 @@ func (ib *imageBuilder) WithResources(resources corev1.ResourceRequirements) *im
 
 func (ib *imageBuilder) WithAdditionalFlags(flags []string) *imageBuilder {
 	ib.builder.AdditionalFlags = flags
+	return ib
+}
+
+func (ib *imageBuilder) WithBuilderStrategy(builderStrategy api.PlatformContainerBuildPublishStrategy) *imageBuilder {
+	ib.builder.BuilderStrategy = builderStrategy
 	return ib
 }
 
